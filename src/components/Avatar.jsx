@@ -1,11 +1,20 @@
-// No width/height attributes on purpose — revisited in the layout-stability topic.
+import { avatar } from '../lib/img'
+
+// width/height are real attributes, not just CSS — they give the browser the
+// aspect ratio before the file loads, so the row doesn't reflow (topic 05).
 export function Avatar({ user, size = 32 }) {
+  const img = avatar(user.avatar, size)
   return (
     <img
       className="avatar"
-      src={user.avatar}
+      src={img.src}
+      srcSet={img.srcSet}
+      width={img.width}
+      height={img.height}
       alt={user.name}
-      style={{ width: size, height: size, borderRadius: '50%' }}
+      loading="lazy"
+      decoding="async"
+      style={{ borderRadius: '50%' }}
     />
   )
 }

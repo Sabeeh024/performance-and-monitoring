@@ -64,7 +64,7 @@ export const POSTS = TITLES.map((title, i) => {
     title,
     author,
     publishedAt: new Date(2026, 7, 28 - i, 9, 0, 0).toISOString(),
-    cover: `https://picsum.photos/seed/devlog-${i + 1}/1200/630`,
+    coverSeed: `devlog-${i + 1}`,
     excerpt: PARA.slice(0, 140) + '…',
     body: MD_BODY,
     tags: ['engineering', i % 2 ? 'frontend' : 'infra', i % 3 ? 'story' : 'howto'],

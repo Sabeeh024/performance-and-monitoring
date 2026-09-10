@@ -1,14 +1,30 @@
 import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
 import { formatDate } from '../lib/formatDate'
+import { cover } from '../lib/img'
 
-// Cover <img> has no width/height and no lazy loading yet — both intentional,
-// they become the worked examples in the loading and layout topics.
-export function PostCard({ post }) {
+const COVER_SIZES = '(max-width: 900px) 100vw, 868px'
+
+// `priority` is set only for the first card. That image is the feed's LCP
+// candidate, so it loads eagerly at high priority; every other cover is lazy and
+// low priority so it doesn't compete for bandwidth on load.
+export function PostCard({ post, priority = false }) {
+  const img = cover(post.coverSeed, { sizes: COVER_SIZES })
   return (
     <article className="card">
       <Link to={`/post/${post.id}`}>
-        <img className="card__cover" src={post.cover} alt="" />
+        <img
+          className="card__cover"
+          src={img.src}
+          srcSet={img.srcSet}
+          sizes={img.sizes}
+          width={img.width}
+          height={img.height}
+          alt=""
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'low'}
+          decoding="async"
+        />
       </Link>
       <div className="card__body">
         <div className="card__meta">

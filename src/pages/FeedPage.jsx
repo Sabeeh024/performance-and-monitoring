@@ -20,8 +20,8 @@ export function FeedPage() {
     <div className="feed">
       <h1 className="feed__heading">Latest posts</h1>
       <div className="feed__grid">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
+        {posts.map((post, i) => (
+          <PostCard key={post.id} post={post} priority={i === 0} />
         ))}
       </div>
     </div>
