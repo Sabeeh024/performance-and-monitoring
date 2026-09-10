@@ -1,10 +1,19 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getPost, getRelated } from '../api/posts'
 import { Avatar } from '../components/Avatar'
 import { Spinner } from '../components/Spinner'
-import { CommentsSection } from '../features/comments/CommentsSection'
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
 import { formatDate } from '../lib/formatDate'
+
+// Comments sit below the fold and pull in CommentForm + the comments API.
+// Split them out so they don't block the article itself from rendering.
+const CommentsSection = lazy(() =>
+  import('../features/comments/CommentsSection').then((m) => ({
+    default: m.CommentsSection,
+  })),
+)
 
 export function PostPage() {
   const { id } = useParams()
@@ -41,11 +50,12 @@ export function PostPage() {
       <button className="like" onClick={() => setLikes((n) => n + 1)}>
         ♥ {likes}
       </button>
-      <div className="post__body">
-        {post.body.split('\n\n').map((p, i) => (
-          <p key={i}>{p}</p>
-        ))}
-      </div>
+      <div
+        className="post__body"
+        dangerouslySetInnerHTML={{
+          __html: DOMPurify.sanitize(marked.parse(post.body)),
+        }}
+      />
 
       {related.length > 0 && (
         <aside className="related">
@@ -60,7 +70,9 @@ export function PostPage() {
         </aside>
       )}
 
-      <CommentsSection postId={post.id} />
+      <Suspense fallback={<Spinner label="Loading comments…" />}>
+        <CommentsSection postId={post.id} />
+      </Suspense>
     </article>
   )
 }

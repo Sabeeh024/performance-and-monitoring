@@ -28,6 +28,35 @@ const TITLES = [
 const PARA =
   'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.'
 
+// Post bodies are Markdown, rendered on the post route only (marked + dompurify).
+const MD_BODY = `## Background
+
+${PARA}
+
+Some key points:
+
+- First, a thing that matters
+- Second, a caveat about the thing
+- Third, what we did instead
+
+> A pull quote that sounds wiser than it is.
+
+\`\`\`js
+function debounce(fn, ms) {
+  let t
+  return (...args) => {
+    clearTimeout(t)
+    t = setTimeout(() => fn(...args), ms)
+  }
+}
+\`\`\`
+
+### What happened next
+
+${PARA}
+
+${PARA}`
+
 export const POSTS = TITLES.map((title, i) => {
   const author = AUTHORS[i % AUTHORS.length]
   return {
@@ -37,7 +66,7 @@ export const POSTS = TITLES.map((title, i) => {
     publishedAt: new Date(2026, 7, 28 - i, 9, 0, 0).toISOString(),
     cover: `https://picsum.photos/seed/devlog-${i + 1}/1200/630`,
     excerpt: PARA.slice(0, 140) + '…',
-    body: Array.from({ length: 6 }, () => PARA).join('\n\n'),
+    body: MD_BODY,
     tags: ['engineering', i % 2 ? 'frontend' : 'infra', i % 3 ? 'story' : 'howto'],
     likes: 3 + ((i * 7) % 40),
   }
