@@ -1,4 +1,12 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import {
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { getPosts } from '../api/posts'
 import { PostCard } from '../components/PostCard'
 import { Spinner } from '../components/Spinner'
@@ -26,11 +34,19 @@ function filterSort(posts, query, tag, sort) {
   return out
 }
 
+const ROW_HEIGHT = 468 // estimate; the virtualizer measures the real height after mount
+
 export function FeedPage() {
   const [posts, setPosts] = useState(null)
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState('all')
   const [sort, setSort] = useState('newest')
+  const listRef = useRef(null)
+  const [listTop, setListTop] = useState(0)
+
+  useLayoutEffect(() => {
+    if (listRef.current) setListTop(listRef.current.offsetTop)
+  }, [posts])
 
   useEffect(() => {
     let alive = true
@@ -40,20 +56,26 @@ export function FeedPage() {
     }
   }, [])
 
-  // The input binds to `query` (updates instantly, keystrokes never lag).
-  // The expensive list derives from `deferredQuery`, which React updates at
-  // lower priority — so a burst of typing doesn't block the keyboard.
   const deferredQuery = useDeferredValue(query)
   const isStale = query !== deferredQuery
 
-  // Only recompute when an input actually changes — not on every parent render.
-  // Also gives the list a stable array identity between unrelated renders.
   const results = useMemo(
     () => filterSort(posts ?? [], deferredQuery, tag, sort),
     [posts, deferredQuery, tag, sort],
   )
 
+  // Render only the rows near the viewport. 800 <article>s -> ~8-12 in the DOM.
+  const virtualizer = useWindowVirtualizer({
+    count: results.length,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 4,
+    gap: 28,
+    scrollMargin: listTop,
+  })
+
   if (!posts) return <Spinner label="Loading feed…" />
+
+  const items = virtualizer.getVirtualItems()
 
   return (
     <div className="feed">
@@ -85,17 +107,37 @@ export function FeedPage() {
       <p className="feed__count muted">{results.length} posts</p>
 
       <div
-        className="feed__grid"
-        style={{ opacity: isStale ? 0.6 : 1, transition: 'opacity 120ms' }}
+        ref={listRef}
+        style={{
+          height: virtualizer.getTotalSize(),
+          position: 'relative',
+          opacity: isStale ? 0.6 : 1,
+          transition: 'opacity 120ms',
+        }}
       >
-        {results.map((post, i) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            query={deferredQuery}
-            priority={i === 0}
-          />
-        ))}
+        {items.map((item) => {
+          const post = results[item.index]
+          return (
+            <div
+              key={post.id}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${item.start - listTop}px)`,
+              }}
+            >
+              <PostCard
+                post={post}
+                query={deferredQuery}
+                priority={item.index === 0}
+              />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
