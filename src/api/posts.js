@@ -23,19 +23,30 @@ export function getPost(id) {
 // Synchronous read — whatever we already know about this post, or null.
 export const peekPost = (id) => cache.get(id) ?? null
 
-// Deliberately O(n*m) tag-overlap scoring, run on every PostPage render.
-// Cheap at 15 posts; it's here as a hook for the runtime-performance topic.
+// "Related posts" scoring runs over the whole corpus. It's offloaded to a Web
+// Worker so it never blocks the main thread while the post is being read —
+// scoring + a route transition + Markdown render on one thread is what caused
+// the jank. One long-lived worker, reused across navigations.
+let worker
+function getWorker() {
+  worker ??= new Worker(new URL('../lib/related.worker.js', import.meta.url), {
+    type: 'module',
+  })
+  return worker
+}
+
+let nextReqId = 0
 export function getRelated(id) {
-  return fakeGet(() => {
-    const target = POSTS.find((p) => p.id === id)
-    if (!target) return []
-    return POSTS.filter((p) => p.id !== id)
-      .map((p) => ({
-        post: p,
-        score: p.tags.filter((t) => target.tags.includes(t)).length,
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map((r) => r.post)
+  return new Promise((resolve) => {
+    const w = getWorker()
+    const reqId = ++nextReqId
+    const onMessage = (e) => {
+      if (e.data.reqId !== reqId) return
+      w.removeEventListener('message', onMessage)
+      const byId = new Map(POSTS.map((p) => [p.id, p]))
+      resolve(e.data.ids.map((rid) => byId.get(rid)).filter(Boolean))
+    }
+    w.addEventListener('message', onMessage)
+    w.postMessage({ id, reqId })
   })
 }
