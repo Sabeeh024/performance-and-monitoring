@@ -1,3 +1,14 @@
+/* Was: render-blocking cross-origin <link> to fonts.googleapis.com.
+   Now: one same-origin variable woff2, latin subset, font-display: swap so text
+   paints immediately in the fallback and swaps when Inter arrives. */
+@font-face {
+  font-family: 'Inter var';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2');
+}
+
 :root {
   --bg: #0f1115;
   --panel: #171a21;
@@ -16,7 +27,10 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Fallback stack picked to be metrically close to Inter — limits the reflow
+     when the webfont swaps in (the FOUT shift the layout topic measures). */
+  font-family: 'Inter var', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
   line-height: 1.6;
 }
 
@@ -81,6 +95,9 @@ button {
 .card__cover {
   display: block;
   width: 100%;
+  height: auto; /* with the width/height attrs, this reserves the box pre-load */
+  aspect-ratio: 1200 / 630;
+  background: var(--border);
 }
 
 .card__body {
@@ -121,7 +138,14 @@ button {
 .post__cover {
   display: block;
   width: 100%;
+  height: auto;
+  aspect-ratio: 1200 / 630;
   border-radius: 12px;
+  background: var(--border);
+}
+
+.post__cover--ph {
+  /* same box as the real cover, shown for the instant before the URL is known */
 }
 
 .post__title {
