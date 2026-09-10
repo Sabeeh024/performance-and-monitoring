@@ -113,6 +113,10 @@ mark {
   border-radius: 3px;
 }
 
+.avatar {
+  border-radius: 50%;
+}
+
 .feed__grid {
   display: grid;
   gap: 28px;

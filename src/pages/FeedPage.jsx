@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { getPosts } from '../api/posts'
 import { PostCard } from '../components/PostCard'
 import { Spinner } from '../components/Spinner'
@@ -11,9 +11,6 @@ const SORTS = {
   quickest: (a, b) => a.readingMinutes - b.readingMinutes,
 }
 
-// Baseline: every keystroke re-runs this whole function — filter over ~800 posts,
-// sort the result, then render every matching <PostCard>. No memoisation, no
-// virtualization. This is the thing topic 04 profiles and then fixes.
 function filterSort(posts, query, tag, sort) {
   const q = query.trim().toLowerCase()
   const out = posts.filter((p) => {
@@ -43,9 +40,20 @@ export function FeedPage() {
     }
   }, [])
 
-  if (!posts) return <Spinner label="Loading feed…" />
+  // The input binds to `query` (updates instantly, keystrokes never lag).
+  // The expensive list derives from `deferredQuery`, which React updates at
+  // lower priority — so a burst of typing doesn't block the keyboard.
+  const deferredQuery = useDeferredValue(query)
+  const isStale = query !== deferredQuery
 
-  const results = filterSort(posts, query, tag, sort)
+  // Only recompute when an input actually changes — not on every parent render.
+  // Also gives the list a stable array identity between unrelated renders.
+  const results = useMemo(
+    () => filterSort(posts ?? [], deferredQuery, tag, sort),
+    [posts, deferredQuery, tag, sort],
+  )
+
+  if (!posts) return <Spinner label="Loading feed…" />
 
   return (
     <div className="feed">
@@ -76,12 +84,15 @@ export function FeedPage() {
 
       <p className="feed__count muted">{results.length} posts</p>
 
-      <div className="feed__grid">
+      <div
+        className="feed__grid"
+        style={{ opacity: isStale ? 0.6 : 1, transition: 'opacity 120ms' }}
+      >
         {results.map((post, i) => (
           <PostCard
             key={post.id}
             post={post}
-            query={query}
+            query={deferredQuery}
             priority={i === 0}
           />
         ))}

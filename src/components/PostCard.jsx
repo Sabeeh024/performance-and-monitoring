@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
 import { formatDate } from '../lib/formatDate'
@@ -19,7 +20,14 @@ function highlight(text, query) {
 // `priority` is set only for the first card. That image is the feed's LCP
 // candidate, so it loads eagerly at high priority; every other cover is lazy and
 // low priority so it doesn't compete for bandwidth on load.
-export function PostCard({ post, query = '', priority = false }) {
+// memo: with a stable `post` reference (the list is useMemo'd upstream) and
+// primitive `query`/`priority`, a card only re-renders when its own props
+// change — so scrolling the virtualized list doesn't re-render every row.
+export const PostCard = memo(function PostCard({
+  post,
+  query = '',
+  priority = false,
+}) {
   const img = cover(post.coverSeed, { sizes: COVER_SIZES })
   return (
     <article className="card">
@@ -60,4 +68,4 @@ export function PostCard({ post, query = '', priority = false }) {
       </div>
     </article>
   )
-}
+})
