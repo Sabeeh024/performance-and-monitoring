@@ -127,12 +127,6 @@ mark {
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  /* Skip rendering + layout for any card scrolled off-screen. Cheap win that
-     needs no library; unlike virtualization it keeps every node in the DOM
-     (so Ctrl+F and a11y tree still work) but doesn't shrink the DOM. The
-     contain-intrinsic-size is the reserved box so the scrollbar stays stable. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 468px;
 }
 
 .card__cover {
