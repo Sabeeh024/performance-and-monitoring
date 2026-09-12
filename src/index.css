@@ -259,6 +259,48 @@ mark {
   color: var(--muted);
 }
 
+.insights__tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 24px;
+}
+
+.insights__tabs button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.insights__tabs button.is-active {
+  background: var(--accent);
+  color: #0b1020;
+  border-color: var(--accent);
+}
+
+.insights input[type='search'] {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 12px;
+  font: inherit;
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 16px;
+}
+
+.insights__trending,
+.insights__results {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.chart {
+  width: 100%;
+}
+
 .spinner {
   display: flex;
   align-items: center;

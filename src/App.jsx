@@ -15,6 +15,9 @@ const PostPage = lazy(() =>
 const LoginPage = lazy(() =>
   import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
+const InsightsPage = lazy(() =>
+  import('./pages/InsightsPage').then((m) => ({ default: m.InsightsPage })),
+)
 
 export default function App() {
   return (
@@ -26,6 +29,7 @@ export default function App() {
             <Route path="/" element={<FeedPage />} />
             <Route path="/post/:id" element={<PostPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/insights" element={<InsightsPage />} />
           </Routes>
         </Suspense>
       </main>

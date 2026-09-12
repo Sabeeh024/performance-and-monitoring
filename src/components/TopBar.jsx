@@ -10,6 +10,7 @@ export function TopBar() {
         Devlog
       </Link>
       <nav className="topbar__nav">
+        <Link to="/insights">Insights</Link>
         {user ? (
           <>
             <Avatar user={user} size={28} />
