@@ -108,84 +108,34 @@ straight onto a DOM element (`<button onClick={cb}>`) does nothing but cost.
 
 ## Fix 3 — `useDeferredValue` + `useTransition` (keep interactions responsive)
 
+Same engine (concurrent rendering), different shape. `useDeferredValue(value)`
+is for a value you already own that changes fast (a keystroke burst) — it gives
+you a lagging copy for the expensive part while the real value stays instant.
+`useTransition` is for an update *you* trigger (a click) — wrap the setter and
+React treats that render as low-priority and interruptible, with an `isPending`
+flag. Neither makes the work faster; both just stop it from blocking input.
+
+Both live on `/insights` (linked from the top bar), each with a real,
+measured reason to be there:
+
 ```jsx
-const [query, setQuery] = useState('')
-const deferredQuery = useDeferredValue(query)   // lags behind during bursts
-const isStale = query !== deferredQuery
-// input binds to `query`; the expensive list derives from `deferredQuery`
+// Search tab: query changes on every keystroke; the fuzzy match is expensive.
+const deferredQuery = useDeferredValue(query)
+const results = useMemo(() => fuzzyTitleSearch(posts, deferredQuery), [posts, deferredQuery])
 ```
-
-The keystroke handler now does only `setQuery` (trivial). React renders the input
-update at high priority, then re-renders the big list from `deferredQuery` at low
-priority — **interruptible**, so the next keystroke pre-empts it.
-
-**Result: keystroke → input latency 80/49/23 ms → 4/2/1 ms.** The list still
-takes time to catch up, but the *typing* never stalls, and you dim the stale list
-(`isStale`) so it doesn't look frozen.
-
-### `useDeferredValue` vs `useTransition` — both shipped, side by side
-
-Same engine (concurrent rendering), different ergonomics, and the feed has one
-of each so you can compare them directly:
-
-| | use when | in this app |
-|---|---|---|
-| `useDeferredValue(value)` | you receive a value (a prop, controlled input) and want a lagging copy for the expensive part. No control over the setter. | the search `query` — bound to the input for instant typing; `deferredQuery` feeds the filter |
-| `const [isPending, startTransition] = useTransition()` | *you* own the state update and can wrap it: `startTransition(() => setTag(next))`. Marks that update as non-urgent. Gives you `isPending`. | the tag/sort `<select>`s — `onChange` wraps `setTag`/`setSort` in `startTransition` |
+Typo-tolerant title search (Damerau-Levenshtein per word) costs ~4 ms/800 posts
+— small but real, and it runs on every keystroke, so the input must not lag.
 
 ```jsx
+// Trending tab: one click triggers an expensive computation.
 const [isPending, startTransition] = useTransition()
-const onTagChange = (e) => {
-  const value = e.target.value
-  startTransition(() => setTag(value))
-}
+const trending = useMemo(() => (tab === 'trending' ? computeTrending(posts) : null), [tab, posts])
+const selectTab = (next) => startTransition(() => setTab(next))
 ```
-
-Why two mechanisms for what looks like the same problem: `query` is a value the
-component already owns as local state that *changes very fast* (a keystroke
-burst) — `useDeferredValue` gives you a second, lagging copy of it without
-touching how you set it. `tag`/`sort` change in **discrete steps** (one click),
-and there's no natural "value to lag" — you just want *this specific update* to
-be low-priority and to know when it's still in flight. `useTransition` gives you
-that directly via `isPending`, no second variable to thread through the tree.
-
-Both feed the same visual signal here — `isBusy = isStale || isPending` dims the
-list — but `isPending` additionally drives its own "· updating…" label, so the
-two are visibly distinguishable when you try them: type fast vs. switch a tag.
-
-**Honest result:** by the time this was added, the feed was already virtualized
-and `filterSort` was already cheap (Fix 1) — so selecting a tag settles in
-**~50 ms**, with or without `useTransition`. The pending state is real and
-briefly visible, but there's no dramatic before/after number to report here the
-way there was for virtualization. It's shipped for the *pattern* — the two hooks
-solving the two shapes of "update I don't want to block on" — not because this
-specific interaction was measurably broken. Same caveat as the Web Worker below:
-add it because a profile showed a real gap, not because the API exists.
-
-Neither hook makes the work *faster* — they make it **non-blocking and
-interruptible** so it doesn't wreck INP. If the work is genuinely huge you still
-need Fix 4/5.
-
-### `/insights` — the same two hooks, where they're actually load-bearing
-
-The feed's tag/sort example above is honest about being a demonstration more
-than a fix. `/insights` (linked from the top bar) exists to show the same two
-hooks doing real work, plus `ResizeObserver` — with every number below
-**measured against this codebase**, not asserted.
-
-| Hook / API | Where | Why it's real here |
-|---|---|---|
-| `useDeferredValue` | Search tab — typo-tolerant title search (Damerau-Levenshtein edit distance per word) | ~4 ms/800 posts unthrottled — small, but non-zero and per-keystroke; the input must not itself lag |
-| `useTransition` | Opening the Trending tab | Trending is an **all-pairs** tag-overlap scan — O(n²) — ~20 ms/800 posts unthrottled, ~80-100 ms throttled — computed fresh every time the tab opens. A synchronous 20-80 ms render on click is a dropped frame; wrapping the tab switch means React can keep the rest of the page interactive while it resolves |
-| `ResizeObserver` + `requestAnimationFrame` | `BarChart`, used by Overview | An SVG chart needs its *rendered* pixel width, which changes for reasons `window.resize` can't see (a sidebar, a tab switch, this very panel). rAF inside the callback avoids mutating state synchronously in a resize callback — the classic "ResizeObserver loop" trap |
-
-The search uses **Damerau-Levenshtein** distance (a transposed pair of letters,
-e.g. `design` → `desing`, costs 1 edit — plain Levenshtein charges 2), with the
-match threshold scaled to the query length rather than a flat number, plus a
-cheap length pre-filter before the expensive per-word comparison. That
-combination is both what makes `desing` correctly match "design" posts and
-most of why the measured cost is only ~4 ms rather than ~20 ms — most title
-words are far shorter than the query and never reach the DP call at all.
+`computeTrending` is an all-pairs tag-overlap scan — O(n²), ~20 ms/800 posts
+unthrottled, ~80-100 ms throttled. A synchronous 20-80 ms render on click is a
+dropped frame; wrapping the tab switch keeps the rest of the page interactive
+while it resolves.
 
 ---
 
