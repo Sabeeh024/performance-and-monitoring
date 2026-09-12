@@ -220,3 +220,30 @@ round-trip, and does it also fix the split-chunk waterfall from Q7? → **topic 
 **Q13 — The `prioritize-lcp-image` gap is unclosable client-side.** How much do
 SSR / SSG / streaming actually buy for LCP and FCP, and what do they cost? A
 *brief* look, not a framework migration. → **topic 07**.
+
+---
+
+### Postscript — the peek cache had a bug, and it's the instructive kind
+
+`getPosts()` (the feed fetch) strips `body` from every post before caching it,
+so the list response doesn't ship ~800 full Markdown bodies. `peekPost(id)`
+reads that same cache. Consequence: navigating **feed → post** seeds `PostPage`
+with a real cached object that has everything *except* `body` — and the original
+code treated "we have a post object" as "we have a fully loaded post," calling
+`marked.parse(post.body)` with `body: undefined`. Crash, on every single
+feed-to-post click.
+
+It passed every smoke test in this topic and in topic 04 because all of that
+testing **loaded `/post/:id` directly** (a fresh page load — empty cache, `peek`
+returns `null`, spinner shows, `getPost()` fills in the body before anything
+renders). Direct-load and feed-click are different code paths through the same
+component, and the optimization's entire reason for existing (a warm cache) is
+also exactly what made the fresh-load tests blind to it. Fixed by gating the
+body-dependent markup on `post.body` specifically instead of on `post` being
+truthy — title/author/date (present in the stripped cache) still render
+instantly; only the Markdown block waits and shows its own spinner.
+
+**The lesson, generalized:** an optimization that keys off "has this been visited
+before" needs its test to actually visit-before — a fresh load and a warm-cache
+load are not the same code path even though they render the same component.
+Smoke-testing only the direct URL missed it here every time.
