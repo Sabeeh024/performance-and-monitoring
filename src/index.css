@@ -107,6 +107,10 @@ button {
   font-size: 14px;
 }
 
+.feed__pending {
+  color: var(--accent);
+}
+
 mark {
   background: var(--accent);
   color: #0b1020;
