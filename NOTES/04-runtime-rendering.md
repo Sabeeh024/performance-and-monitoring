@@ -166,6 +166,49 @@ Neither hook makes the work *faster* — they make it **non-blocking and
 interruptible** so it doesn't wreck INP. If the work is genuinely huge you still
 need Fix 4/5.
 
+### `/insights` — the same two hooks, where they're actually load-bearing
+
+The feed's tag/sort example above is honest about being a demonstration more
+than a fix. `/insights` (linked from the top bar) exists to show the same two
+hooks doing real work, plus two more APIs that come up constantly in the same
+conversation — `ResizeObserver` and `requestIdleCallback` — with every number
+below **measured against this codebase**, not asserted.
+
+| Hook / API | Where | Why it's real here |
+|---|---|---|
+| `useDeferredValue` | Search tab — typo-tolerant title search (Damerau-Levenshtein edit distance per word) | ~4 ms/800 posts unthrottled — small, but non-zero and per-keystroke; the input must not itself lag |
+| `useTransition` | Opening the Trending tab | Trending is an **all-pairs** tag-overlap scan — O(n²) — ~20 ms/800 posts unthrottled, ~80-100 ms throttled. A synchronous 20-80 ms render on click is a dropped frame; wrapping the tab switch means React can keep the rest of the page interactive while it resolves |
+| `requestIdleCallback` | Same Trending computation, run proactively right after posts load | Free CPU time the browser would otherwise waste; by the time most users open the tab it's already cached (`trendingCache`) and the transition above never has real work to do — `useTransition` is the fallback for the cases where idle time didn't run first |
+| `ResizeObserver` + `requestAnimationFrame` | `BarChart`, used by Overview | An SVG chart needs its *rendered* pixel width, which changes for reasons `window.resize` can't see (a sidebar, a tab switch, this very panel). rAF inside the callback avoids mutating state synchronously in a resize callback — the classic "ResizeObserver loop" trap |
+
+Two things worth calling out because they didn't go as planned, which is more
+instructive than if they had:
+
+**The `requestIdleCallback` fallback path was hard to observe by design.** On
+this page, idle time shows up almost immediately after load — there's nothing
+else competing for the main thread — so in normal use you'll see "pre-warmed
+during idle time" essentially every time you open the tab. To actually see the
+"computed on demand" fallback fire, idle-warming had to be disabled on purpose
+(see the commit). That's not a flaw in the demo; it's the realistic finding: on
+a quiet page, idle time is abundant and the fallback path is rare. On a busy
+real page — analytics scripts, ads, animations — idle time is scarce and that
+fallback is the path that runs most of the time. Both matter; this page mostly
+shows you the first.
+
+**The typo-tolerant search shipped with a real correctness bug, caught by
+testing it rather than trusting it.** Plain Levenshtein distance charges **2**
+for a transposition (`design` → `desing` swaps two letters), and a flat
+`maxDistance: 3` is far too permissive for a 6-letter query — searching
+`desing` returned 24 results, only 5 of which were actually about "design."
+Fixed by switching to **Damerau-Levenshtein** (transposition costs 1) and
+scaling the threshold to the query length instead of a flat number. Re-running
+`desing` after the fix returns exactly the same 24 posts as searching `design`
+outright. The fix also **cut the measured cost by ~5x** (22 ms → 4 ms) as a
+side effect — the length pre-filter that correctness required also means most
+title words never reach the expensive edit-distance call. A reminder that a
+performance number measured against buggy logic isn't trustworthy — verify
+correctness and cost together, not cost alone.
+
 ---
 
 ## Fix 4 — Virtualization (render only what's visible)
