@@ -1,13 +1,26 @@
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart } from '../components/BarChart'
-import { getPosts } from '../api/posts'
+import { getAllPostsWithBodies, getPosts } from '../api/posts'
 import { Spinner } from '../components/Spinner'
+import { buildCsvChunked, buildCsvSync } from '../lib/csv'
 import {
   computeTagStats,
   computeTrending,
   fuzzyTitleSearch,
 } from '../lib/insights'
+
+// A visible "is the main thread free right now" indicator: ticks every 100ms
+// via setInterval. A blocking synchronous task delays this exactly like it
+// would delay a click or a keystroke — the tick visibly stalls, then jumps.
+function useHeartbeat() {
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 100)
+    return () => clearInterval(id)
+  }, [])
+  return tick
+}
 
 export function InsightsPage() {
   const [posts, setPosts] = useState(null)
@@ -51,6 +64,45 @@ export function InsightsPage() {
     [posts, deferredQuery],
   )
 
+  // "Breaking up work": both buttons do the *same* ~50 ms task (render a
+  // Markdown preview for all 800 posts into CSV rows). The only difference is
+  // whether it runs as one synchronous block or in yielded chunks. Watch the
+  // heartbeat number below while each one runs.
+  const heartbeat = useHeartbeat()
+  const [exportState, setExportState] = useState(null) // { mode, status, progress, ms, chars }
+
+  // Export needs bodies, which the feed's getPosts() deliberately never has
+  // (topic 02/03). Fetched separately, lazily, only once the Export tab is
+  // actually opened — no reason to pull 800 Markdown bodies over the wire for
+  // anyone just looking at the tag chart.
+  const [exportPosts, setExportPosts] = useState(null)
+  useEffect(() => {
+    if (tab !== 'export' || exportPosts) return
+    let alive = true
+    getAllPostsWithBodies().then((data) => alive && setExportPosts(data))
+    return () => {
+      alive = false
+    }
+  }, [tab, exportPosts])
+
+  async function runExport(mode) {
+    setExportState({ mode, status: 'running', progress: 0 })
+    const t0 = performance.now()
+    const csv =
+      mode === 'blocking'
+        ? buildCsvSync(exportPosts)
+        : await buildCsvChunked(exportPosts, {
+            onProgress: (progress) => setExportState((s) => ({ ...s, progress })),
+          })
+    setExportState({
+      mode,
+      status: 'done',
+      progress: 100,
+      ms: Math.round(performance.now() - t0),
+      chars: csv.length,
+    })
+  }
+
   if (!posts) return <Spinner label="Loading insights…" />
 
   return (
@@ -76,7 +128,20 @@ export function InsightsPage() {
         >
           Search
         </button>
+        <button
+          className={tab === 'export' ? 'is-active' : ''}
+          onClick={() => selectTab('export')}
+        >
+          Export
+        </button>
       </div>
+
+      <p className="muted insights__heartbeat">
+        main-thread heartbeat: {heartbeat}{' '}
+        <span title="Ticks every 100ms via setInterval. Stalls exactly like a click or keystroke would during a blocking task.">
+          (?)
+        </span>
+      </p>
 
       {tab === 'overview' && (
         <section>
@@ -118,6 +183,31 @@ export function InsightsPage() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {tab === 'export' && (
+        <section>
+          <h2>Export as CSV (with rendered body preview)</h2>
+          <p className="muted">
+            Same ~50 ms task (Markdown-render 800 posts into rows) run two ways.
+            Watch the heartbeat above while each one runs.
+          </p>
+          {!exportPosts ? (
+            <Spinner label="Fetching full post bodies for export…" />
+          ) : (
+            <div className="insights__export-actions">
+              <button onClick={() => runExport('blocking')}>Export (blocking)</button>
+              <button onClick={() => runExport('chunked')}>Export (chunked)</button>
+            </div>
+          )}
+          {exportState && (
+            <p className="muted">
+              {exportState.status === 'running'
+                ? `exporting… ${exportState.mode === 'chunked' ? exportState.progress + '%' : ''}`
+                : `${exportState.mode}: ${exportState.chars.toLocaleString()} chars in ${exportState.ms} ms`}
+            </p>
+          )}
         </section>
       )}
     </div>

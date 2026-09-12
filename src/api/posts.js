@@ -23,6 +23,14 @@ export function getPost(id) {
 // Synchronous read — whatever we already know about this post, or null.
 export const peekPost = (id) => cache.get(id) ?? null
 
+// A distinct "full export" fetch, with bodies — deliberately separate from
+// getPosts(). A real API wouldn't hand a list view all 800 Markdown bodies
+// (topic 02's whole point); a bulk-export feature is a different request with
+// a different shape, fetched only when something actually needs it.
+export function getAllPostsWithBodies() {
+  return fakeGet(() => POSTS)
+}
+
 // "Related posts" scoring runs over the whole corpus. It's offloaded to a Web
 // Worker so it never blocks the main thread while the post is being read —
 // scoring + a route transition + Markdown render on one thread is what caused

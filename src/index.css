@@ -295,6 +295,17 @@ mark {
   border-color: var(--accent);
 }
 
+.insights__heartbeat {
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 20px;
+}
+
+.insights__export-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .insights input[type='search'] {
   background: var(--panel);
   border: 1px solid var(--border);
