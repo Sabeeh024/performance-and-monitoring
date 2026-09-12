@@ -5,7 +5,23 @@ Loading is handled; this is about what the main thread does *after* the page is 
 
 | | branch |
 |---|---|
-| Feed search/filter over 800 posts, then fixed | `topic/04-runtime-rendering` (off `topic/03`) |
+| Unoptimised — feature added, nothing fixed yet | `topic/04-runtime-rendering-unoptimized` |
+| Optimised — all five fixes below applied | `topic/04-runtime-rendering` (off `topic/03`) |
+
+```
+git switch topic/04-runtime-rendering-unoptimized   # or topic/04-runtime-rendering
+npm install && npm run dev
+```
+
+`-unoptimized` is a fixed pointer at the commit right after the feature landed
+(`9bb1c75`) — it never moves. The three fix commits stack on top of it on
+`topic/04-runtime-rendering` itself, so `git log topic/04-runtime-rendering` also
+shows the fixes applied one at a time if you want to bisect the improvement
+instead of jumping straight to before/after:
+
+```
+git log --oneline topic/04-runtime-rendering-unoptimized..topic/04-runtime-rendering
+```
 
 The setup: the feed got a **search box + tag filter + sort** over an **800-post**
 seed. Realistic feature; it tanked the page.
