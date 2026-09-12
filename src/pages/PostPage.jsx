@@ -71,6 +71,9 @@ export function PostPage() {
         <Spinner label="Loading post…" />
       ) : (
         <>
+          {/* Title/author/date come back from the feed's stripped-down list too
+              (only `body` is omitted there), so it's safe to show these from a
+              cache "peek" alone — before the full getPost() fetch resolves. */}
           <h1 className="post__title">{post.title}</h1>
           <div className="post__meta">
             <Avatar user={post.author} size={32} />
@@ -80,32 +83,43 @@ export function PostPage() {
               {formatDate(post.publishedAt)}
             </time>
           </div>
-          <button className="like" onClick={() => setLikes((n) => n + 1)}>
-            ♥ {likes}
-          </button>
-          <div
-            className="post__body"
-            dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(marked.parse(post.body)),
-            }}
-          />
 
-          {related.length > 0 && (
-            <aside className="related">
-              <h3>Related</h3>
-              <ul>
-                {related.map((r) => (
-                  <li key={r.id}>
-                    <Link to={`/post/${r.id}`}>{r.title}</Link>
-                  </li>
-                ))}
-              </ul>
-            </aside>
+          {/* `body` is the one field the feed cache never has (getPosts() strips
+              it to avoid shipping ~800 full Markdown bodies for a list view).
+              A cached "peek" from the feed is never enough to render this —
+              only the full getPost() response has it. */}
+          {post.body ? (
+            <>
+              <button className="like" onClick={() => setLikes((n) => n + 1)}>
+                ♥ {likes}
+              </button>
+              <div
+                className="post__body"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(marked.parse(post.body)),
+                }}
+              />
+
+              {related.length > 0 && (
+                <aside className="related">
+                  <h3>Related</h3>
+                  <ul>
+                    {related.map((r) => (
+                      <li key={r.id}>
+                        <Link to={`/post/${r.id}`}>{r.title}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </aside>
+              )}
+
+              <Suspense fallback={<Spinner label="Loading comments…" />}>
+                <CommentsSection postId={post.id} />
+              </Suspense>
+            </>
+          ) : (
+            <Spinner label="Loading post…" />
           )}
-
-          <Suspense fallback={<Spinner label="Loading comments…" />}>
-            <CommentsSection postId={post.id} />
-          </Suspense>
         </>
       )}
     </article>
