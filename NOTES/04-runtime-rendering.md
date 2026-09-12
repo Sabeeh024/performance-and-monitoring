@@ -179,22 +179,13 @@ hooks doing real work, plus `ResizeObserver` — with every number below
 | `useTransition` | Opening the Trending tab | Trending is an **all-pairs** tag-overlap scan — O(n²) — ~20 ms/800 posts unthrottled, ~80-100 ms throttled — computed fresh every time the tab opens. A synchronous 20-80 ms render on click is a dropped frame; wrapping the tab switch means React can keep the rest of the page interactive while it resolves |
 | `ResizeObserver` + `requestAnimationFrame` | `BarChart`, used by Overview | An SVG chart needs its *rendered* pixel width, which changes for reasons `window.resize` can't see (a sidebar, a tab switch, this very panel). rAF inside the callback avoids mutating state synchronously in a resize callback — the classic "ResizeObserver loop" trap |
 
-One thing worth calling out because it didn't go as planned, which is more
-instructive than if it had:
-
-**The typo-tolerant search shipped with a real correctness bug, caught by
-testing it rather than trusting it.** Plain Levenshtein distance charges **2**
-for a transposition (`design` → `desing` swaps two letters), and a flat
-`maxDistance: 3` is far too permissive for a 6-letter query — searching
-`desing` returned 24 results, only 5 of which were actually about "design."
-Fixed by switching to **Damerau-Levenshtein** (transposition costs 1) and
-scaling the threshold to the query length instead of a flat number. Re-running
-`desing` after the fix returns exactly the same 24 posts as searching `design`
-outright. The fix also **cut the measured cost by ~5x** (22 ms → 4 ms) as a
-side effect — the length pre-filter that correctness required also means most
-title words never reach the expensive edit-distance call. A reminder that a
-performance number measured against buggy logic isn't trustworthy — verify
-correctness and cost together, not cost alone.
+The search uses **Damerau-Levenshtein** distance (a transposed pair of letters,
+e.g. `design` → `desing`, costs 1 edit — plain Levenshtein charges 2), with the
+match threshold scaled to the query length rather than a flat number, plus a
+cheap length pre-filter before the expensive per-word comparison. That
+combination is both what makes `desing` correctly match "design" posts and
+most of why the measured cost is only ~4 ms rather than ~20 ms — most title
+words are far shorter than the query and never reach the DP call at all.
 
 ---
 

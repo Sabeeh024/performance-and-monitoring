@@ -197,18 +197,12 @@ before the next chunk starts. A page also gets a visible progress indicator for
 free, since `onProgress` naturally has somewhere to report between chunks —
 the blocking version has nowhere to put one.
 
-### A bug this surfaced, worth keeping: don't loosen a fix to unblock a new feature
-
-Wiring this up crashed immediately: `marked(): input parameter is undefined`.
-Cause: `getPosts()` (the feed's list fetch) strips `body` — the exact
-optimization from topics 02/03 — so `/insights`, which only ever calls
-`getPosts()`, never had bodies to render a preview from. The tempting fix is
-loosening `getPosts()` to include `body` "just for this one page." The actual
-fix was a **separate, explicit fetch** — `getAllPostsWithBodies()` — requested
-lazily only when the Export tab opens. Same shape as the `PostPage` crash from
-topic 04's postscript: a stripped-list optimization meeting a feature that
-needs the stripped field, twice now. The fix both times was "give the feature
-its own correctly-shaped request," not "make the list heavier for everyone."
+Export needs full post bodies, which `getPosts()` (the feed's list fetch)
+deliberately never has (topics 02/03 — no reason to ship ~800 Markdown bodies
+for a list view). So export uses its own **separate fetch**,
+`getAllPostsWithBodies()`, requested lazily only when the Export tab opens —
+not a loosened `getPosts()` that would re-bloat the list response for
+everyone else.
 
 ---
 
