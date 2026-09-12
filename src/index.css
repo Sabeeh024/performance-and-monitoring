@@ -176,6 +176,24 @@ mark {
   margin-right: 8px;
 }
 
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: transparent;
+  z-index: 50;
+}
+
+.reading-progress__bar {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0); /* JS sets the real value via this transform, not width */
+}
+
 .post__cover {
   display: block;
   width: 100%;

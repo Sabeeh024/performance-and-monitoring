@@ -8,10 +8,12 @@ import {
   useTransition,
 } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { logSearchQuery } from '../api/analytics'
 import { getPosts } from '../api/posts'
 import { PostCard } from '../components/PostCard'
 import { Spinner } from '../components/Spinner'
 import { ALL_TAGS } from '../data/seed'
+import { debounce } from '../lib/timing'
 
 const SORTS = {
   newest: (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt),
@@ -62,6 +64,25 @@ export function FeedPage() {
   // gives us a lagging `deferredQuery` for the expensive part.
   const deferredQuery = useDeferredValue(query)
   const isStale = query !== deferredQuery
+
+  // Debounce: a completely different problem from the one above. useDeferredValue
+  // keeps *rendering* responsive on every keystroke; it still fires every
+  // keystroke, just at lower priority. An analytics log (or a real search API
+  // call) shouldn't fire every keystroke at all — nobody needs "d", "de", "des"
+  // logged as three separate searches. Debounce collapses a burst of calls into
+  // one, fired only after the user stops for `ms`.
+  const [lastLogged, setLastLogged] = useState(null)
+  const debouncedLog = useMemo(
+    () =>
+      debounce((q) => {
+        logSearchQuery(q).then(() => setLastLogged(q))
+      }, 500),
+    [],
+  )
+  useEffect(() => {
+    if (query.trim()) debouncedLog(query)
+    return () => debouncedLog.cancel()
+  }, [query, debouncedLog])
 
   // useTransition: for updates *we* trigger. tag/sort aren't values we receive
   // and want to lag — they're state we own, so we mark the update itself as
@@ -127,6 +148,7 @@ export function FeedPage() {
       <p className="feed__count muted">
         {results.length} posts
         {isPending && <span className="feed__pending"> · updating…</span>}
+        {lastLogged && <span> · analytics logged “{lastLogged}” (debounced)</span>}
       </p>
 
       <div

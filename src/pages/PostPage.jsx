@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { getPost, getRelated, peekPost } from '../api/posts'
 import { Avatar } from '../components/Avatar'
+import { ReadingProgress } from '../components/ReadingProgress'
 import { Spinner } from '../components/Spinner'
 import { formatDate } from '../lib/formatDate'
 import { cover } from '../lib/img'
@@ -62,9 +63,11 @@ export function PostPage() {
   }, [id])
 
   const coverSeed = post?.coverSeed ?? peekPost(id)?.coverSeed
+  const articleRef = useRef(null)
 
   return (
-    <article className="post">
+    <article className="post" ref={articleRef}>
+      {post?.body && <ReadingProgress targetRef={articleRef} />}
       <Cover seed={coverSeed} />
 
       {!post ? (
