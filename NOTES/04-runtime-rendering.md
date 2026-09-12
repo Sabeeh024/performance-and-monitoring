@@ -173,11 +173,6 @@ than a fix. `/insights` (linked from the top bar) exists to show the same two
 hooks doing real work, plus `ResizeObserver` — with every number below
 **measured against this codebase**, not asserted.
 
-(`requestIdleCallback` was here too — proactively pre-warming the Trending
-computation in the background — and worked correctly, but it's a much less
-commonly used API than the rest of this list, so it was cut back out to keep
-the page focused on the two that matter most. Trending is on-demand only now.)
-
 | Hook / API | Where | Why it's real here |
 |---|---|---|
 | `useDeferredValue` | Search tab — typo-tolerant title search (Damerau-Levenshtein edit distance per word) | ~4 ms/800 posts unthrottled — small, but non-zero and per-keystroke; the input must not itself lag |
@@ -235,29 +230,6 @@ Notes:
   in-page Ctrl+F for off-screen rows. Below ~100 items it's not worth it.
 - Libraries: `@tanstack/react-virtual` (headless, this one), `react-virtuoso`
   (batteries included), `react-window` (old reliable, fixed sizes).
-
-### `content-visibility: auto` — the no-library alternative (described, not shipped here)
-
-```css
-.card { content-visibility: auto; contain-intrinsic-size: auto 468px; }
-```
-
-Browser skips **rendering and layout** for off-screen elements. One CSS line,
-no JS. Difference from virtualization: **nodes stay in the DOM** (Ctrl+F, the
-a11y tree, and `scrollIntoView` all still work) — but you don't get the
-DOM-size reduction, and a huge DOM still costs memory + style recalc.
-`contain-intrinsic-size` is the placeholder box so the scrollbar doesn't jump.
-Good default for long articles, comment threads, anything long-but-not-10k.
-
-**We tried this on `.card` and then removed it.** Once the feed is virtualized,
-only ~10–14 cards are ever mounted — there are no off-screen `.card` elements
-left for `content-visibility` to skip, so it was inert: correct CSS, zero
-measured effect, dead weight in the stylesheet. Kept in this doc as a technique
-worth knowing (it's the right call on a long *non-virtualized* list — a comment
-thread rendered in full, an article's table of contents, anything long-but-not-
-10k where reaching for a virtualizer would be overkill) — just not demonstrated
-in this codebase. Same principle as the rest of this topic: don't ship an
-optimization you haven't measured doing something.
 
 ---
 
