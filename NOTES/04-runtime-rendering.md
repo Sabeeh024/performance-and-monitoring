@@ -170,7 +170,7 @@ Notes:
 - Libraries: `@tanstack/react-virtual` (headless, this one), `react-virtuoso`
   (batteries included), `react-window` (old reliable, fixed sizes).
 
-### `content-visibility: auto` — the no-library alternative
+### `content-visibility: auto` — the no-library alternative (described, not shipped here)
 
 ```css
 .card { content-visibility: auto; contain-intrinsic-size: auto 468px; }
@@ -182,6 +182,16 @@ a11y tree, and `scrollIntoView` all still work) — but you don't get the
 DOM-size reduction, and a huge DOM still costs memory + style recalc.
 `contain-intrinsic-size` is the placeholder box so the scrollbar doesn't jump.
 Good default for long articles, comment threads, anything long-but-not-10k.
+
+**We tried this on `.card` and then removed it.** Once the feed is virtualized,
+only ~10–14 cards are ever mounted — there are no off-screen `.card` elements
+left for `content-visibility` to skip, so it was inert: correct CSS, zero
+measured effect, dead weight in the stylesheet. Kept in this doc as a technique
+worth knowing (it's the right call on a long *non-virtualized* list — a comment
+thread rendered in full, an article's table of contents, anything long-but-not-
+10k where reaching for a virtualizer would be overkill) — just not demonstrated
+in this codebase. Same principle as the rest of this topic: don't ship an
+optimization you haven't measured doing something.
 
 ---
 
