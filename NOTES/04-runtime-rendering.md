@@ -106,7 +106,7 @@ straight onto a DOM element (`<button onClick={cb}>`) does nothing but cost.
 
 ---
 
-## Fix 3 — `useDeferredValue` (keep input responsive)
+## Fix 3 — `useDeferredValue` + `useTransition` (keep interactions responsive)
 
 ```jsx
 const [query, setQuery] = useState('')
@@ -123,17 +123,48 @@ priority — **interruptible**, so the next keystroke pre-empts it.
 takes time to catch up, but the *typing* never stalls, and you dim the stale list
 (`isStale`) so it doesn't look frozen.
 
-### `useDeferredValue` vs `useTransition`
+### `useDeferredValue` vs `useTransition` — both shipped, side by side
 
-Same engine (concurrent rendering), different ergonomics:
+Same engine (concurrent rendering), different ergonomics, and the feed has one
+of each so you can compare them directly:
 
-| | use when |
-|---|---|
-| `useDeferredValue(value)` | you receive a value (a prop, controlled input) and want a lagging copy for the expensive part. No control over the setter. |
-| `const [isPending, startTransition] = useTransition()` | *you* own the state update and can wrap it: `startTransition(() => setTab(next))`. Marks that update as non-urgent. Gives you `isPending`. |
+| | use when | in this app |
+|---|---|---|
+| `useDeferredValue(value)` | you receive a value (a prop, controlled input) and want a lagging copy for the expensive part. No control over the setter. | the search `query` — bound to the input for instant typing; `deferredQuery` feeds the filter |
+| `const [isPending, startTransition] = useTransition()` | *you* own the state update and can wrap it: `startTransition(() => setTag(next))`. Marks that update as non-urgent. Gives you `isPending`. | the tag/sort `<select>`s — `onChange` wraps `setTag`/`setSort` in `startTransition` |
 
-Neither makes the work *faster* — they make it **non-blocking and interruptible**
-so it doesn't wreck INP. If the work is genuinely huge you still need Fix 4/5.
+```jsx
+const [isPending, startTransition] = useTransition()
+const onTagChange = (e) => {
+  const value = e.target.value
+  startTransition(() => setTag(value))
+}
+```
+
+Why two mechanisms for what looks like the same problem: `query` is a value the
+component already owns as local state that *changes very fast* (a keystroke
+burst) — `useDeferredValue` gives you a second, lagging copy of it without
+touching how you set it. `tag`/`sort` change in **discrete steps** (one click),
+and there's no natural "value to lag" — you just want *this specific update* to
+be low-priority and to know when it's still in flight. `useTransition` gives you
+that directly via `isPending`, no second variable to thread through the tree.
+
+Both feed the same visual signal here — `isBusy = isStale || isPending` dims the
+list — but `isPending` additionally drives its own "· updating…" label, so the
+two are visibly distinguishable when you try them: type fast vs. switch a tag.
+
+**Honest result:** by the time this was added, the feed was already virtualized
+and `filterSort` was already cheap (Fix 1) — so selecting a tag settles in
+**~50 ms**, with or without `useTransition`. The pending state is real and
+briefly visible, but there's no dramatic before/after number to report here the
+way there was for virtualization. It's shipped for the *pattern* — the two hooks
+solving the two shapes of "update I don't want to block on" — not because this
+specific interaction was measurably broken. Same caveat as the Web Worker below:
+add it because a profile showed a real gap, not because the API exists.
+
+Neither hook makes the work *faster* — they make it **non-blocking and
+interruptible** so it doesn't wreck INP. If the work is genuinely huge you still
+need Fix 4/5.
 
 ---
 
