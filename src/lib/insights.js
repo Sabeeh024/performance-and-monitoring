@@ -1,7 +1,7 @@
 // Pure computation for the /insights page. Two of these are genuinely
 // expensive at 800 posts (measured, not assumed) — that's deliberate: this
-// file exists to give useDeferredValue/useTransition/requestIdleCallback a
-// real reason to be there, unlike the feed's tag/sort switch.
+// file exists to give useDeferredValue/useTransition a real reason to be
+// there, unlike the feed's tag/sort switch.
 
 // Damerau-Levenshtein (optimal string alignment): edit distance with insert,
 // delete, substitute, AND adjacent transposition as single-cost operations.
@@ -81,9 +81,9 @@ export function computeTagStats(posts) {
 // "Trending" = ranked by how many OTHER posts share >=2 tags with it, i.e. how
 // well-connected each post is to the rest of the corpus, plus raw likes. This
 // needs an all-pairs comparison — O(n^2) — genuinely expensive: ~20 ms
-// unthrottled over 800 posts. This is what requestIdleCallback pre-warms in
-// the background, and what useTransition covers if the user opens the tab
-// before that background pass has run.
+// unthrottled over 800 posts, computed the moment the Trending tab is opened.
+// That's what useTransition (in InsightsPage) covers: without it, opening the
+// tab is a single ~20-80 ms synchronous render — a dropped frame.
 export function computeTrending(posts, limit = 10) {
   const scored = posts.map((post) => {
     let clusterSize = 0
