@@ -170,30 +170,22 @@ need Fix 4/5.
 
 The feed's tag/sort example above is honest about being a demonstration more
 than a fix. `/insights` (linked from the top bar) exists to show the same two
-hooks doing real work, plus two more APIs that come up constantly in the same
-conversation — `ResizeObserver` and `requestIdleCallback` — with every number
-below **measured against this codebase**, not asserted.
+hooks doing real work, plus `ResizeObserver` — with every number below
+**measured against this codebase**, not asserted.
+
+(`requestIdleCallback` was here too — proactively pre-warming the Trending
+computation in the background — and worked correctly, but it's a much less
+commonly used API than the rest of this list, so it was cut back out to keep
+the page focused on the two that matter most. Trending is on-demand only now.)
 
 | Hook / API | Where | Why it's real here |
 |---|---|---|
 | `useDeferredValue` | Search tab — typo-tolerant title search (Damerau-Levenshtein edit distance per word) | ~4 ms/800 posts unthrottled — small, but non-zero and per-keystroke; the input must not itself lag |
-| `useTransition` | Opening the Trending tab | Trending is an **all-pairs** tag-overlap scan — O(n²) — ~20 ms/800 posts unthrottled, ~80-100 ms throttled. A synchronous 20-80 ms render on click is a dropped frame; wrapping the tab switch means React can keep the rest of the page interactive while it resolves |
-| `requestIdleCallback` | Same Trending computation, run proactively right after posts load | Free CPU time the browser would otherwise waste; by the time most users open the tab it's already cached (`trendingCache`) and the transition above never has real work to do — `useTransition` is the fallback for the cases where idle time didn't run first |
+| `useTransition` | Opening the Trending tab | Trending is an **all-pairs** tag-overlap scan — O(n²) — ~20 ms/800 posts unthrottled, ~80-100 ms throttled — computed fresh every time the tab opens. A synchronous 20-80 ms render on click is a dropped frame; wrapping the tab switch means React can keep the rest of the page interactive while it resolves |
 | `ResizeObserver` + `requestAnimationFrame` | `BarChart`, used by Overview | An SVG chart needs its *rendered* pixel width, which changes for reasons `window.resize` can't see (a sidebar, a tab switch, this very panel). rAF inside the callback avoids mutating state synchronously in a resize callback — the classic "ResizeObserver loop" trap |
 
-Two things worth calling out because they didn't go as planned, which is more
-instructive than if they had:
-
-**The `requestIdleCallback` fallback path was hard to observe by design.** On
-this page, idle time shows up almost immediately after load — there's nothing
-else competing for the main thread — so in normal use you'll see "pre-warmed
-during idle time" essentially every time you open the tab. To actually see the
-"computed on demand" fallback fire, idle-warming had to be disabled on purpose
-(see the commit). That's not a flaw in the demo; it's the realistic finding: on
-a quiet page, idle time is abundant and the fallback path is rare. On a busy
-real page — analytics scripts, ads, animations — idle time is scarce and that
-fallback is the path that runs most of the time. Both matter; this page mostly
-shows you the first.
+One thing worth calling out because it didn't go as planned, which is more
+instructive than if it had:
 
 **The typo-tolerant search shipped with a real correctness bug, caught by
 testing it rather than trusting it.** Plain Levenshtein distance charges **2**
