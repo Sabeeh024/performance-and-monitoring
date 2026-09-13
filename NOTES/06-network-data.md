@@ -86,6 +86,14 @@ measurably more bytes and render work on every page.
 - **`fetch()` priority** — `fetch(url, { priority: 'high' | 'low' })` is the
   non-image version of topic 03's `fetchpriority` attribute; same idea, for
   data requests instead of images.
+- **`AbortController`** — cancels an in-flight request: on unmount/route
+  change (so a slow response doesn't waste bandwidth or update unmounted
+  state), or when a newer request supersedes it (stops a stale response from
+  overwriting a fresher one — a real race, not just a cosmetic one). React
+  Query calls this for you automatically via the `signal` it passes into
+  every `queryFn` — but only if that `queryFn` forwards it to a real
+  `fetch()`. Not demonstrated here: our fetch layer (`fakeGet`) is a bare
+  `setTimeout`, nothing to actually abort.
 
 ---
 
