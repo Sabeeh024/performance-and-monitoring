@@ -1,0 +1,8 @@
+[
+  { "name": "vendor-react (framework)", "path": "dist/assets/vendor-react-*.js", "limit": "75 KB", "gzip": true },
+  { "name": "vendor-query (data layer)", "path": "dist/assets/vendor-query-*.js", "limit": "25 KB", "gzip": true },
+  { "name": "entry glue (App/main)", "path": "dist/assets/index-*.js", "limit": "3 KB", "gzip": true },
+  { "name": "FeedPage route", "path": "dist/assets/FeedPage-*.js", "limit": "4 KB", "gzip": true },
+  { "name": "PostPage route", "path": "dist/assets/PostPage-*.js", "limit": "15 KB", "gzip": true },
+  { "name": "InsightsPage route", "path": "dist/assets/InsightsPage-*.js", "limit": "4 KB", "gzip": true }
+]
