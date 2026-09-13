@@ -4,11 +4,15 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Source maps kept on for bundle analysis (source-map-explorer) and for
-  // readable production stack traces. They ship as separate .map files that
-  // browsers only fetch when devtools are open.
   build: {
-    sourcemap: true,
+    // 'hidden': .map files are still generated (source-map-explorer, and an
+    // error tool like Sentry can still ingest them from the build output) but
+    // the shipped JS has no `//# sourceMappingURL=` comment pointing at them.
+    // With `true`, that comment is what let any visitor's DevTools fetch the
+    // map and browse fully-reconstructed original source — comments and all
+    // (this is exactly the mechanism topic 02's bundle analysis relied on).
+    // `false` drops maps entirely, including from your own tooling.
+    sourcemap: 'hidden',
     rollupOptions: {
       output: {
         // Vendor code in its own chunk, separate from app glue (App.jsx, the
