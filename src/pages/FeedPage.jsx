@@ -9,10 +9,10 @@ import {
 } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { logSearchQuery } from '../api/analytics'
-import { getPosts } from '../api/posts'
 import { PostCard } from '../components/PostCard'
 import { Spinner } from '../components/Spinner'
 import { ALL_TAGS } from '../data/seed'
+import { usePostsInfinite, useAllPosts, usePrimePostCache } from '../hooks/postQueries'
 import { debounce } from '../lib/timing'
 
 const SORTS = {
@@ -40,7 +40,6 @@ function filterSort(posts, query, tag, sort) {
 const ROW_HEIGHT = 468 // estimate; the virtualizer measures the real height after mount
 
 export function FeedPage() {
-  const [posts, setPosts] = useState(null)
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState('all')
   const [sort, setSort] = useState('newest')
@@ -49,28 +48,24 @@ export function FeedPage() {
 
   useLayoutEffect(() => {
     if (listRef.current) setListTop(listRef.current.offsetTop)
-  }, [posts])
-
-  useEffect(() => {
-    let alive = true
-    getPosts().then((data) => alive && setPosts(data))
-    return () => {
-      alive = false
-    }
   }, [])
 
-  // useDeferredValue: for a value we *receive* (the controlled input's string).
-  // React keeps rendering `query` at full priority (so typing never lags) and
-  // gives us a lagging `deferredQuery` for the expensive part.
+  // Any active filter needs the whole corpus client-side (no search endpoint
+  // here) — plain browsing stays paginated. Only one of these two queries is
+  // ever enabled at a time.
+  const isFiltering = query.trim() !== '' || tag !== 'all' || sort !== 'newest'
+  const infinite = usePostsInfinite(!isFiltering)
+  const all = useAllPosts(isFiltering)
+
+  const infinitePosts = useMemo(
+    () => infinite.data?.pages.flatMap((p) => p.posts) ?? [],
+    [infinite.data],
+  )
+  usePrimePostCache(isFiltering ? all.data : infinitePosts)
+
   const deferredQuery = useDeferredValue(query)
   const isStale = query !== deferredQuery
 
-  // Debounce: a completely different problem from the one above. useDeferredValue
-  // keeps *rendering* responsive on every keystroke; it still fires every
-  // keystroke, just at lower priority. An analytics log (or a real search API
-  // call) shouldn't fire every keystroke at all — nobody needs "d", "de", "des"
-  // logged as three separate searches. Debounce collapses a burst of calls into
-  // one, fired only after the user stops for `ms`.
   const [lastLogged, setLastLogged] = useState(null)
   const debouncedLog = useMemo(
     () =>
@@ -84,10 +79,6 @@ export function FeedPage() {
     return () => debouncedLog.cancel()
   }, [query, debouncedLog])
 
-  // useTransition: for updates *we* trigger. tag/sort aren't values we receive
-  // and want to lag — they're state we own, so we mark the update itself as
-  // low-priority and get an `isPending` flag back, instead of a second lagging
-  // variable to thread through everything downstream.
   const [isPending, startTransition] = useTransition()
   const onTagChange = (e) => {
     const value = e.target.value
@@ -98,12 +89,13 @@ export function FeedPage() {
     startTransition(() => setSort(value))
   }
 
-  const results = useMemo(
-    () => filterSort(posts ?? [], deferredQuery, tag, sort),
-    [posts, deferredQuery, tag, sort],
+  const filteredResults = useMemo(
+    () => (all.data ? filterSort(all.data, deferredQuery, tag, sort) : []),
+    [all.data, deferredQuery, tag, sort],
   )
-
+  const results = isFiltering ? filteredResults : infinitePosts
   const isBusy = isStale || isPending
+  const isInitialLoading = isFiltering ? all.isLoading : infinite.isLoading
 
   // Render only the rows near the viewport. 800 <article>s -> ~8-12 in the DOM.
   const virtualizer = useWindowVirtualizer({
@@ -114,7 +106,28 @@ export function FeedPage() {
     scrollMargin: listTop,
   })
 
-  if (!posts) return <Spinner label="Loading feed…" />
+  // Infinite scroll: an IntersectionObserver on a sentinel element after the
+  // list, not a scroll listener. `rootMargin` starts the next page loading
+  // ~800px before the sentinel is actually on screen, so a page typically
+  // finishes before the user scrolls far enough to notice a gap.
+  const sentinelRef = useRef(null)
+  useEffect(() => {
+    if (isFiltering || !infinite.hasNextPage) return
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !infinite.isFetchingNextPage) {
+          infinite.fetchNextPage()
+        }
+      },
+      { rootMargin: '800px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isFiltering, infinite.hasNextPage, infinite.isFetchingNextPage, infinite.fetchNextPage])
+
+  if (isInitialLoading) return <Spinner label="Loading feed…" />
 
   const items = virtualizer.getVirtualItems()
 
@@ -146,7 +159,7 @@ export function FeedPage() {
       </div>
 
       <p className="feed__count muted">
-        {results.length} posts
+        {isFiltering ? results.length : `${results.length}+`} posts
         {isPending && <span className="feed__pending"> · updating…</span>}
         {lastLogged && <span> · analytics logged “{lastLogged}” (debounced)</span>}
       </p>
@@ -162,6 +175,7 @@ export function FeedPage() {
       >
         {items.map((item) => {
           const post = results[item.index]
+          if (!post) return null
           return (
             <div
               key={post.id}
@@ -184,6 +198,12 @@ export function FeedPage() {
           )
         })}
       </div>
+
+      {!isFiltering && infinite.hasNextPage && (
+        <div ref={sentinelRef} className="feed__sentinel">
+          {infinite.isFetchingNextPage && <Spinner label="Loading more…" />}
+        </div>
+      )}
     </div>
   )
 }

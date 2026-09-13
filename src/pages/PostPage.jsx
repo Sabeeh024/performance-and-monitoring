@@ -2,10 +2,11 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { getPost, getRelated, peekPost } from '../api/posts'
+import { getRelated } from '../api/posts'
 import { Avatar } from '../components/Avatar'
 import { ReadingProgress } from '../components/ReadingProgress'
 import { Spinner } from '../components/Spinner'
+import { usePost, useLikeMutation } from '../hooks/postQueries'
 import { formatDate } from '../lib/formatDate'
 import { cover } from '../lib/img'
 
@@ -42,33 +43,28 @@ function Cover({ seed }) {
 
 export function PostPage() {
   const { id } = useParams()
-  // Seed the state from cache (set by the feed) so the cover <img> is in the
-  // very first render instead of appearing only after the 400 ms fetch.
-  const [post, setPost] = useState(() => peekPost(id))
+  // React Query's cache replaces the hand-rolled peekPost() from topic 03: if
+  // the feed already primed this id (a hover-prefetch or just having been in
+  // the list), `post` is populated on the very first render.
+  const { data: post } = usePost(id)
+  const likeMutation = useLikeMutation(id)
   const [related, setRelated] = useState([])
-  const [likes, setLikes] = useState(0)
 
   useEffect(() => {
     let alive = true
-    setPost(peekPost(id))
-    getPost(id).then((data) => {
-      if (!alive) return
-      setPost(data)
-      setLikes(data?.likes ?? 0)
-    })
+    setRelated([])
     getRelated(id).then((data) => alive && setRelated(data))
     return () => {
       alive = false
     }
   }, [id])
 
-  const coverSeed = post?.coverSeed ?? peekPost(id)?.coverSeed
   const articleRef = useRef(null)
 
   return (
     <article className="post" ref={articleRef}>
       {post?.body && <ReadingProgress targetRef={articleRef} />}
-      <Cover seed={coverSeed} />
+      <Cover seed={post?.coverSeed} />
 
       {!post ? (
         <Spinner label="Loading post…" />
@@ -93,8 +89,8 @@ export function PostPage() {
               only the full getPost() response has it. */}
           {post.body ? (
             <>
-              <button className="like" onClick={() => setLikes((n) => n + 1)}>
-                ♥ {likes}
+              <button className="like" onClick={() => likeMutation.mutate()}>
+                ♥ {post.likes}
               </button>
               <div
                 className="post__body"

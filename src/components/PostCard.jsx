@@ -1,6 +1,8 @@
 import { memo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Avatar } from './Avatar'
+import { getPost } from '../api/posts'
 import { formatDate } from '../lib/formatDate'
 import { cover } from '../lib/img'
 
@@ -29,8 +31,23 @@ export const PostCard = memo(function PostCard({
   priority = false,
 }) {
   const img = cover(post.coverSeed, { sizes: COVER_SIZES })
+  const queryClient = useQueryClient()
+
+  // Hovering (or focusing, for keyboard/touch) a card is a strong signal the
+  // next click is this post — start the fetch now instead of on click.
+  // `staleTime` here means a second hover within 10s is a no-op, not a
+  // duplicate request. React Query also dedupes an in-flight identical
+  // request automatically if the click lands before this resolves.
+  const prefetch = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['post', post.id],
+      queryFn: () => getPost(post.id),
+      staleTime: 10_000,
+    })
+  }
+
   return (
-    <article className="card">
+    <article className="card" onMouseEnter={prefetch} onFocus={prefetch}>
       <Link to={`/post/${post.id}`}>
         <img
           className="card__cover"

@@ -1,27 +1,30 @@
 import { fakeGet } from './client'
 import { POSTS } from '../data/seed'
 
-// Tiny in-memory cache. The feed populates it; the post page can then read the
-// cover URL synchronously and render the LCP <img> on the first frame instead of
-// after a 400 ms fetch. (A real app uses React Query / a router loader — topic 06.)
-const cache = new Map()
+const PAGE_SIZE = 40
 
-export function getPosts() {
-  return fakeGet(() => POSTS.map(({ body, ...rest }) => rest)).then((list) => {
-    for (const p of list) cache.set(p.id, { ...cache.get(p.id), ...p })
-    return list
+// A real paginated list endpoint — the default way the feed loads now instead
+// of "fetch all 800 up front." Shape matches what most REST APIs return:
+// items for this page + whatever the client needs to ask for the next one.
+export function getPostsPage(pageParam = 0) {
+  return fakeGet(() => {
+    const start = pageParam * PAGE_SIZE
+    const slice = POSTS.slice(start, start + PAGE_SIZE).map(({ body, ...rest }) => rest)
+    return { posts: slice, nextPage: start + PAGE_SIZE < POSTS.length ? pageParam + 1 : null }
   })
+}
+
+// The full stripped list in one call — what the feed switches to once a
+// search/filter/sort is active (client-side filtering over everything needs
+// everything; paginating *and* filtering the same way would mean re-fetching
+// on every keystroke, or a real search endpoint neither exists here).
+export function getPosts() {
+  return fakeGet(() => POSTS.map(({ body, ...rest }) => rest))
 }
 
 export function getPost(id) {
-  return fakeGet(() => POSTS.find((p) => p.id === id) ?? null).then((post) => {
-    if (post) cache.set(id, { ...cache.get(id), ...post })
-    return post
-  })
+  return fakeGet(() => POSTS.find((p) => p.id === id) ?? null)
 }
-
-// Synchronous read — whatever we already know about this post, or null.
-export const peekPost = (id) => cache.get(id) ?? null
 
 // A distinct "full export" fetch, with bodies — deliberately separate from
 // getPosts(). A real API wouldn't hand a list view all 800 Markdown bodies
@@ -29,6 +32,14 @@ export const peekPost = (id) => cache.get(id) ?? null
 // a different shape, fetched only when something actually needs it.
 export function getAllPostsWithBodies() {
   return fakeGet(() => POSTS)
+}
+
+export function likePost(id) {
+  return fakeGet(() => {
+    const post = POSTS.find((p) => p.id === id)
+    if (post) post.likes += 1
+    return post?.likes
+  })
 }
 
 // "Related posts" scoring runs over the whole corpus. It's offloaded to a Web

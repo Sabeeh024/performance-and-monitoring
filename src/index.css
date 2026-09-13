@@ -111,6 +111,10 @@ button {
   color: var(--accent);
 }
 
+.feed__sentinel {
+  padding: 20px 0 40px;
+}
+
 mark {
   background: var(--accent);
   color: #0b1020;
