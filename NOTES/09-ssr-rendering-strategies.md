@@ -2,17 +2,19 @@
 
 Everything so far was one rendering strategy: client-side rendering, an
 empty `<div id="root">` until JS runs. This topic covers what changes with
-the others — SSG, ISR, streaming SSR, Server Components — using a second,
-separate project rather than a branch, since it's a different framework and
-build tool, not a variant of the Vite app.
+the others — SSG, ISR, streaming SSR, Server Components — using a second
+app in its own subfolder rather than a variant of the Vite app's own code,
+since it's a different framework and build tool with its own
+`package.json`/`node_modules`.
 
-| | project |
+| | branch |
 |---|---|
-| Same Devlog concept (Feed + Post + comments), rebuilt on Next.js App Router | `~/Desktop/Study/performance-and-monitoring-nextjs` |
+| Same Devlog concept (Feed + Post + comments), rebuilt on Next.js App Router, in `nextjs-demo/` | `topic/09-ssr-nextjs` (off `topic/08`) |
 
 ```
-cd ../performance-and-monitoring-nextjs
-npm run build && npm run start
+git switch topic/09-ssr-nextjs
+cd nextjs-demo
+npm install && npm run build && npm run start
 ```
 
 ---
