@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "size": "npm run build --silent && size-limit"
+    "size": "npm run build --silent && size-limit",
+    "lhci": "npm run build --silent && node scripts/lighthouse-ci.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
@@ -21,6 +22,7 @@
     "web-vitals": "^6.2.1"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@size-limit/file": "^13.1.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
