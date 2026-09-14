@@ -90,6 +90,14 @@ Release markers (annotating a dashboard with "deploy X happened here") are
 what make "did that change help" answerable at a glance instead of an
 after-the-fact investigation.
 
+**Adjacent, not covered:** *error* tracking — `window.onerror`/
+`unhandledrejection`, React Error Boundaries, session replay — is a sibling
+discipline to performance RUM, not the same thing. Sentry got named above
+purely for its Performance product; its error pipeline (and the fact that
+Error Boundaries specifically miss event-handler and async errors, so you
+need both mechanisms) is a reliability-monitoring topic this curriculum
+doesn't scope into.
+
 ---
 
 ## Next

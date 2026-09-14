@@ -61,6 +61,20 @@ budgets are a different tool's job (Lighthouse CI) — topic 08.
 
 ## Brief / adjacent
 
+- **Why Vite's dev server is fast (vs Webpack)** — Webpack traverses and
+  bundles the *whole* dependency graph before serving anything in dev, so
+  startup cost grows with app size. Vite serves `index.html`, then the
+  browser requests modules by URL over native ESM (`import` in the browser
+  itself, no bundling), and esbuild (Go, far faster than JS-based
+  transformers) compiles each file on demand — startup is close to constant
+  regardless of app size. For **production** Vite switches to Rollup;
+  native per-file ESM doesn't scale to real traffic, which is exactly what
+  `manualChunks` above is tuning.
+- **Minification** — on by default in this build (esbuild strips whitespace,
+  shortens identifiers, etc.) as part of `vite build`; nothing configured
+  here, just worth knowing it's not free — it's why local dev code and
+  shipped code look nothing alike, and part of why source maps (above)
+  matter for reading a shipped stack trace at all.
 - **Modern/legacy builds** — this app ships one modern ES modules build (no
   `@vitejs/plugin-legacy`, no `nomodule` fallback). That's the right default
   today: legacy bundles + polyfills add real weight for a shrinking slice of

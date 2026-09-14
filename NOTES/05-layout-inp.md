@@ -19,6 +19,13 @@ tried to trigger: font swap (FOUT) and content injected after a fetch (Related,
 Comments). "It measured zero" and "it can't happen" are different claims —
 this section tells them apart.
 
+For reference, the score itself: `layout shift score = impact fraction ×
+distance fraction`, summed across every unexpected shift in the page's life.
+Impact fraction is how much of the viewport moved; distance fraction is how
+far. Not something you compute by hand — DevTools/Lighthouse report the
+summed score directly — but it's why a small element jumping a long distance
+and a large element jumping a short one can score similarly.
+
 ### Font swap: measured, not assumed
 
 Ran Lighthouse's `layout-shifts` audit against `/post/:id` (mobile, throttled):

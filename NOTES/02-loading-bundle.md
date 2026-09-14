@@ -83,6 +83,14 @@ i18n. `date-fns`/`dayjs`/`luxon` earn their place when you need parsing, arithme
 from '../feature'` can force the bundler to load the whole barrel before shaking.
 Keep barrels thin, or import from the concrete file on hot paths.
 
+**Tree-shaking vs dead-code elimination — related, not the same mechanism.**
+Tree-shaking removes exports nothing *imports* (a module-graph analysis, ESM
+-only, what the date-fns example above is). DCE removes code that's *provably
+unreachable regardless of imports* — `if (false) { ... }`, a branch behind a
+build-time constant that's always falsy. Both run as part of the same
+minification step (esbuild here), but tree-shaking is about the dependency
+graph and DCE is about control flow within a module.
+
 ---
 
 ## Part 3 — Code-splitting
@@ -160,6 +168,14 @@ or you'll spend a day shaving 8 KB while a 350 KB image sits untouched.*
 
 ## Advanced / adjacent (brief)
 
+- **Brotli vs gzip** — the numbers in this doc are gzip (what the visualizer
+  and Lighthouse report by default). Brotli is a newer compression format,
+  typically ~15-20% smaller than gzip on the same text asset, and is what
+  `rollup-plugin-visualizer`'s `brotliSize: true` (already on in our config)
+  computes alongside gzip. Serving it is a hosting/CDN concern, not a build
+  one — most CDNs and Node servers content-negotiate it automatically via
+  `Accept-Encoding: br`, falling back to gzip for the (now rare) client that
+  doesn't support it.
 - **Vendor chunk / `manualChunks`** — splitting `react`/`react-dom`/`router` into
   their own long-cached chunk so an app-code deploy doesn't bust the framework
   cache. Real but nuanced (over-splitting hurts). → **topic 07**.
