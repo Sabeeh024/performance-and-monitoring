@@ -334,6 +334,29 @@ mark {
   width: 100%;
 }
 
+.insights__vitals {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 480px;
+}
+
+.insights__vitals th,
+.insights__vitals td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.rating-good {
+  color: #4ade80;
+}
+.rating-needs-improvement {
+  color: #facc15;
+}
+.rating-poor {
+  color: #f87171;
+}
+
 .spinner {
   display: flex;
   align-items: center;

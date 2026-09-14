@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart } from '../components/BarChart'
+import { getStoredVitals } from '../api/analytics'
 import { getAllPostsWithBodies, getPosts } from '../api/posts'
 import { Spinner } from '../components/Spinner'
 import { buildCsvChunked, buildCsvSync } from '../lib/csv'
@@ -9,6 +10,16 @@ import {
   computeTrending,
   fuzzyTitleSearch,
 } from '../lib/insights'
+
+// The p75 of a handful of samples from one browser isn't a real field metric —
+// real RUM needs thousands of visits across real devices/networks (topic 01's
+// lab-vs-field point, again). This exists to show the *shape* of that
+// aggregation, not to stand in for it.
+function p75(values) {
+  if (!values.length) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.floor(0.75 * (sorted.length - 1))]
+}
 
 // A visible "is the main thread free right now" indicator: ticks every 100ms
 // via setInterval. A blocking synchronous task delays this exactly like it
@@ -103,6 +114,29 @@ export function InsightsPage() {
     })
   }
 
+  const [vitals, setVitals] = useState([])
+  useEffect(() => {
+    if (tab !== 'vitals') return
+    setVitals(getStoredVitals())
+  }, [tab])
+  const vitalsByName = useMemo(() => {
+    const groups = new Map()
+    for (const v of vitals) {
+      if (!groups.has(v.name)) groups.set(v.name, [])
+      groups.get(v.name).push(v)
+    }
+    return [...groups.entries()].map(([name, entries]) => ({
+      name,
+      count: entries.length,
+      p75: p75(entries.map((e) => e.value)),
+      worstRating: entries.some((e) => e.rating === 'poor')
+        ? 'poor'
+        : entries.some((e) => e.rating === 'needs-improvement')
+          ? 'needs-improvement'
+          : 'good',
+    }))
+  }, [vitals])
+
   if (!posts) return <Spinner label="Loading insights…" />
 
   return (
@@ -133,6 +167,12 @@ export function InsightsPage() {
           onClick={() => selectTab('export')}
         >
           Export
+        </button>
+        <button
+          className={tab === 'vitals' ? 'is-active' : ''}
+          onClick={() => selectTab('vitals')}
+        >
+          Vitals
         </button>
       </div>
 
@@ -207,6 +247,45 @@ export function InsightsPage() {
                 ? `exporting… ${exportState.mode === 'chunked' ? exportState.progress + '%' : ''}`
                 : `${exportState.mode}: ${exportState.chars.toLocaleString()} chars in ${exportState.ms} ms`}
             </p>
+          )}
+        </section>
+      )}
+
+      {tab === 'vitals' && (
+        <section>
+          <h2>Real User Monitoring (this browser only)</h2>
+          <p className="muted">
+            Collected by <code>web-vitals</code> and stored to localStorage
+            since this repo has no real backend — see{' '}
+            <code>src/lib/vitals.js</code>. Reload the app, click around, come
+            back to this tab.
+          </p>
+          {vitalsByName.length === 0 ? (
+            <p className="muted">
+              Nothing collected yet — CLS/LCP/INP only finalize when the page
+              is hidden or navigated away from (switch tabs, then come back).
+            </p>
+          ) : (
+            <table className="insights__vitals">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Samples</th>
+                  <th>p75</th>
+                  <th>Worst rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vitalsByName.map((v) => (
+                  <tr key={v.name}>
+                    <td>{v.name}</td>
+                    <td>{v.count}</td>
+                    <td>{v.p75}</td>
+                    <td className={`rating-${v.worstRating}`}>{v.worstRating}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       )}
