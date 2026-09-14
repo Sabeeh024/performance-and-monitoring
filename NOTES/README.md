@@ -25,3 +25,4 @@ No app-code changes land on `master`.
 | 06 | Network layer: waterfalls, caching, data-fetching patterns | `topic/06-network-data` |
 | 07 | Build & delivery: chunking, budgets, CI | `topic/07-build-delivery` |
 | 08 | Monitoring & analytics: RUM, synthetic, dashboards | `topic/08-monitoring-rum` |
+| 09 | SSR/SSG/ISR/streaming, RSC — Next.js companion, extras only | sibling project: `../performance-and-monitoring-nextjs` |
